@@ -10,9 +10,9 @@ const SI_SHORT: &'static[&'static str] = &["k", "M", "G", "T", "P", "E"];
 
 fn iec_fmt(n: u64, f: &mut fmt::Formatter, prefixes: &[&str], singular: &str, plural: &str) -> fmt::Result {
 	if n == 1 {
-		write!(f, "{} {}", n, singular)
+		write!(f, "{:5} {}", n, singular)
 	} else if n < 1000 {
-		write!(f, "{} {}", n, plural)
+		write!(f, "{:5} {}", n, plural)
 	} else {
 		let mut index = 0;
 		let mut base = 1024f64;
@@ -34,9 +34,9 @@ fn iec_fmt(n: u64, f: &mut fmt::Formatter, prefixes: &[&str], singular: &str, pl
 
 fn si_fmt(n: u64, f: &mut fmt::Formatter, prefixes: &[&str], singular: &str, plural: &str) -> fmt::Result {
 	if n == 1 {
-		write!(f, "{} {}", n, singular)
+		write!(f, "{:5} {}", n, singular)
 	} else if n < 1000 {
-		write!(f, "{} {}", n, plural)
+		write!(f, "{:5} {}", n, plural)
 	} else {
 		let mut index = 0;
 		let mut base = 1000f64;
