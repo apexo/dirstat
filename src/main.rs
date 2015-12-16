@@ -84,8 +84,7 @@ fn tree<T: Display>(indent: &mut String, dir: &str, ds: DirState,
 
 	println!("{}{}  {}", indent, get_value(&ds), dir);
 
-	let mut entries: Vec<(OsString, DirState)> = Vec::new();
-	entries.extend(ds.directories.into_iter());
+	let mut entries: Vec<(OsString, DirState)> = ds.directories.into_iter().collect();
 	entries.sort_by(sort);
 
 	let old_indent = indent.len();
