@@ -1,4 +1,7 @@
 #![feature(path_ext)]
+#![feature(core)]
+
+extern crate core;
 
 use std::collections::hash_map::HashMap;
 use std::ffi::OsString;
@@ -8,6 +11,8 @@ use std::path::Path;
 use std::string::String;
 use std::os::unix::raw;
 use std::fs::PathExt;
+use std::fmt::Display;
+use core::cmp::Ordering;
 
 mod numfmt;
 mod args;
@@ -77,68 +82,26 @@ fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState,
 	}
 }
 
-fn tree_size(indent: &mut String, dir: &str, cutoff_size: u64, ds: DirState) {
-	println!("{}{}  {}", indent, numfmt::IecSizeShort(ds.total_size), dir);
+fn tree<T: Display>(indent: &mut String, dir: &str, ds: DirState,
+	get_value: &Fn(&DirState) -> T,
+	test_cutoff: &Fn(&DirState) -> bool,
+	sort: &Fn(&(OsString, DirState), &(OsString, DirState)) -> Ordering) {
+
+	println!("{}{}  {}", indent, get_value(&ds), dir);
 
 	let mut entries: Vec<(OsString, DirState)> = Vec::new();
 	entries.extend(ds.directories.into_iter());
-	entries.sort_by(|a, b| a.1.total_size.cmp(&b.1.total_size).reverse());
+	entries.sort_by(sort);
 
 	for _ in 0..4 {
 		indent.push(' ');
 	}
 
 	for entry in entries.into_iter() {
-		if entry.1.total_size < cutoff_size {
+		if test_cutoff(&entry.1) {
 			break;
 		}
-		tree_size(indent, &entry.0.to_string_lossy(), cutoff_size, entry.1);
-	}
-
-	for _ in 0..4 {
-		indent.pop();
-	}
-}
-
-fn tree_blocks(indent: &mut String, dir: &str, cutoff_blocks: u64, ds: DirState) {
-	println!("{}{}  {}", indent, numfmt::IecSizeShort(ds.blocks * 512), dir);
-
-	let mut entries: Vec<(OsString, DirState)> = Vec::new();
-	entries.extend(ds.directories.into_iter());
-	entries.sort_by(|a, b| a.1.blocks.cmp(&b.1.blocks).reverse());
-
-	for _ in 0..4 {
-		indent.push(' ');
-	}
-
-	for entry in entries.into_iter() {
-		if entry.1.blocks < cutoff_blocks {
-			break;
-		}
-		tree_blocks(indent, &entry.0.to_string_lossy(), cutoff_blocks, entry.1);
-	}
-
-	for _ in 0..4 {
-		indent.pop();
-	}
-}
-
-fn tree_files(indent: &mut String, dir: &str, cutoff_files: u32, ds: DirState) {
-	println!("{}{}  {}", indent, numfmt::SiFilesShort(ds.number_of_files as u64), dir);
-
-	let mut entries: Vec<(OsString, DirState)> = Vec::new();
-	entries.extend(ds.directories.into_iter());
-	entries.sort_by(|a, b| a.1.blocks.cmp(&b.1.blocks).reverse());
-
-	for _ in 0..4 {
-		indent.push(' ');
-	}
-
-	for entry in entries.into_iter() {
-		if entry.1.number_of_files < cutoff_files {
-			break;
-		}
-		tree_files(indent, &entry.0.to_string_lossy(), cutoff_files, entry.1);
+		tree(indent, &entry.0.to_string_lossy(), entry.1, get_value, test_cutoff, sort);
 	}
 
 	for _ in 0..4 {
@@ -173,8 +136,29 @@ fn main() {
 	let mut indent = String::new();
 
 	match options.mode {
-		args::Mode::ApparentSize => tree_size(&mut indent, "", (ts.root.total_size as f64 * options.cutoff) as u64, ts.root),
-		args::Mode::Size => tree_blocks(&mut indent, "", (ts.root.blocks as f64 * options.cutoff) as u64, ts.root),
-		args::Mode::Files => tree_files(&mut indent, "", (ts.root.number_of_files as f64 * options.cutoff) as u32, ts.root),
+		args::Mode::ApparentSize => {
+			let cutoff = (ts.root.total_size as f64 * options.cutoff) as u64;
+			tree(&mut indent, "", ts.root,
+				&|ds| numfmt::IecSizeShort(ds.total_size),
+				&|ds| ds.total_size < cutoff,
+				&|a, b| a.1.total_size.cmp(&b.1.total_size).reverse(),
+			);
+		},
+		args::Mode::Size => {
+			let cutoff = (ts.root.blocks as f64 * options.cutoff) as u64;
+			tree(&mut indent, "", ts.root,
+				&|ds| numfmt::IecSizeShort(ds.blocks * 512),
+				&|ds| ds.blocks < cutoff,
+				&|a, b| a.1.blocks.cmp(&b.1.blocks).reverse(),
+			);
+		},
+		args::Mode::Files => {
+			let cutoff = (ts.root.number_of_files as f64 * options.cutoff) as u32;
+			tree(&mut indent, "", ts.root,
+				&|ds| numfmt::SiFilesShort(ds.number_of_files as u64),
+				&|ds| ds.number_of_files < cutoff,
+				&|a, b| a.1.number_of_files.cmp(&b.1.number_of_files).reverse(),
+			);
+		},
 	}
 }
