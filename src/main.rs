@@ -93,9 +93,8 @@ fn tree<T: Display>(indent: &mut String, dir: &str, ds: DirState,
 	entries.extend(ds.directories.into_iter());
 	entries.sort_by(sort);
 
-	for _ in 0..4 {
-		indent.push(' ');
-	}
+	let old_indent = indent.len();
+	indent.push_str("    ");
 
 	for entry in entries.into_iter() {
 		if test_cutoff(&entry.1) {
@@ -104,9 +103,7 @@ fn tree<T: Display>(indent: &mut String, dir: &str, ds: DirState,
 		tree(indent, &entry.0.to_string_lossy(), entry.1, get_value, test_cutoff, sort);
 	}
 
-	for _ in 0..4 {
-		indent.pop();
-	}
+	indent.truncate(old_indent);
 }
 
 fn main() {
