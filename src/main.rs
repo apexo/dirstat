@@ -3,7 +3,6 @@
 use std::collections::hash_map::HashMap;
 use std::ffi::OsString;
 use std::fs::{read_dir, Metadata};
-use std::ops::Add;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::string::String;
@@ -20,29 +19,6 @@ struct DirState {
 	blocks: u64,
 	directories: HashMap<OsString, DirState>,
 }
-
-impl Add<DirState> for DirState {
-	type Output = DirState;
-
-	fn add(mut self, rhs: DirState) -> DirState {
-		let mut result = DirState::default();
-		result.number_of_files = self.number_of_files + rhs.number_of_files;
-		result.total_size = self.total_size + rhs.total_size;
-		result.blocks = self.blocks + rhs.blocks;
-
-		for (dir, state) in rhs.directories.into_iter() {
-			match self.directories.remove(&dir) {
-				None => { result.directories.insert(dir, state); },
-				Some(state0) => { result.directories.insert(dir, state0 + state); },
-			}
-		}
-		for (dir, state) in self.directories.into_iter() {
-			result.directories.insert(dir, state);
-		}
-		result
-	}
-}
-
 
 struct ThreadState {
 	dirstack: Vec<DirState>,
@@ -66,23 +42,8 @@ impl ThreadState {
 	fn root(self) -> DirState {
 		assert!(self.dirstack.len() == 1);
 		self.dirstack.into_iter().next().unwrap()
-		//self.dirstack.pop().unwrap()
 	}
 }
-
-/*
-impl Add<ThreadState> for ThreadState {
-	type Output = ThreadState;
-
-	fn add(self, rhs: ThreadState) -> ThreadState {
-		ThreadState{
-			number_of_files: self.number_of_files + rhs.number_of_files,
-			total_size: self.total_size + rhs.total_size,
-			blocks: self.blocks + rhs.blocks,
-		}
-	}
-}
-*/
 
 fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState, &Metadata)) {
 	let iter = match read_dir(dir) {
@@ -234,8 +195,6 @@ fn main() {
 			ds.number_of_files += 1;
 		});
 	}
-	//println!("{} ({} allocated) in {}", numfmt::IecSizeShort(ts.root().total_size), numfmt::IecSizeShort(ts.root().blocks * 512), numfmt::SiFilesShort(ts.root().number_of_files as u64));
-
 	let mut indent = String::new();
 
 	match options.mode {
