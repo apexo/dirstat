@@ -30,7 +30,7 @@ struct ThreadState {
 	dev: Option<raw::dev_t>,
 }
 
-fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path, cb: &mut FnMut(&mut DirState, &Metadata)) {
+fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path, cb: &Fn(&mut DirState, &Metadata)) {
 	let iter = match read_dir(dir) {
 		Ok(iter) => iter,
 		Err(error) => {
@@ -119,7 +119,7 @@ fn main() {
 			None
 		};
 
-		visit_dirs(&mut ts, &mut root, Path::new(&path), &mut |ds, meta| {
+		visit_dirs(&mut ts, &mut root, Path::new(&path), &|ds, meta| {
 			ds.total_size += meta.size() as u64;
 			ds.blocks += meta.blocks() as u64;
 			ds.number_of_files += 1;
