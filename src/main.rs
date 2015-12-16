@@ -13,22 +13,12 @@ use std::fs::PathExt;
 mod numfmt;
 mod args;
 
+#[derive(Default)]
 struct DirState {
 	number_of_files: u32,
 	total_size: u64,
 	blocks: u64,
 	directories: HashMap<OsString, DirState>,
-}
-
-impl Default for DirState {
-	fn default() -> DirState {
-		DirState{
-			number_of_files: 0,
-			total_size: 0,
-			blocks: 0,
-			directories: HashMap::new(),
-		}
-	}
 }
 
 impl Add<DirState> for DirState {
