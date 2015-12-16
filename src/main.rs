@@ -87,15 +87,11 @@ fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState,
 
 			let ds = ts.dirstack.pop().unwrap();
 
-			{
-				let top = ts.dirstack.last_mut().unwrap();
-				top.total_size += ds.total_size;
-				top.blocks += ds.blocks;
-				top.number_of_files += ds.number_of_files;
-			}
-
-			ts.dirstack.last_mut().unwrap().directories.insert(entry.file_name(), ds);
-
+			let top = ts.dirstack.last_mut().unwrap();
+			top.total_size += ds.total_size;
+			top.blocks += ds.blocks;
+			top.number_of_files += ds.number_of_files;
+			top.directories.insert(entry.file_name(), ds);
 		} else if meta.is_file() {
 			cb(ts, &meta);
 		}
