@@ -53,13 +53,10 @@ fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState,
 			}
 		};
 
-		match ts.dev {
-			Some(dev) => { 
-				if dev != meta.dev() {
-					continue;
-				}
+		if let Some(dev) = ts.dev {
+			if dev != meta.dev() {
+				continue;
 			}
-			None => {},
 		}
 
 		if meta.is_dir() {
