@@ -27,12 +27,10 @@ struct DirState {
 
 #[derive(Default)]
 struct ThreadState {
-	root: DirState,
-	dirstack: Vec<DirState>,
 	dev: Option<raw::dev_t>,
 }
 
-fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState, &Metadata)) {
+fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path, cb: &mut FnMut(&mut DirState, &Metadata)) {
 	let iter = match read_dir(dir) {
 		Ok(iter) => iter,
 		Err(error) => {
@@ -65,19 +63,16 @@ fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState,
 		}
 
 		if meta.is_dir() {
-			ts.dirstack.push(Default::default());
+			let mut ds = DirState::default();
 
-			visit_dirs(ts, &entry.path(), cb);
+			visit_dirs(ts, &mut ds, &entry.path(), cb);
 
-			let ds = ts.dirstack.pop().unwrap();
-
-			let top = ts.dirstack.last_mut().unwrap_or(&mut ts.root);
 			top.total_size += ds.total_size;
 			top.blocks += ds.blocks;
 			top.number_of_files += ds.number_of_files;
 			top.directories.insert(entry.file_name(), ds);
 		} else if meta.is_file() {
-			cb(ts, &meta);
+			cb(top, &meta);
 		}
 	}
 }
@@ -109,6 +104,7 @@ fn tree<T: Display>(indent: &mut String, dir: &str, ds: DirState,
 fn main() {
 	let options = args::parse_args();
 	let mut ts = ThreadState::default();
+	let mut root = DirState::default();
 
 	for path in options.paths {
 		ts.dev = if options.xdev {
@@ -123,8 +119,7 @@ fn main() {
 			None
 		};
 
-		visit_dirs(&mut ts, Path::new(&path), &mut |ts, meta| {
-			let ds = ts.dirstack.last_mut().unwrap_or(&mut ts.root);
+		visit_dirs(&mut ts, &mut root, Path::new(&path), &mut |ds, meta| {
 			ds.total_size += meta.size() as u64;
 			ds.blocks += meta.blocks() as u64;
 			ds.number_of_files += 1;
@@ -134,24 +129,24 @@ fn main() {
 
 	match options.mode {
 		args::Mode::ApparentSize => {
-			let cutoff = (ts.root.total_size as f64 * options.cutoff) as u64;
-			tree(&mut indent, "", ts.root,
+			let cutoff = (root.total_size as f64 * options.cutoff) as u64;
+			tree(&mut indent, "", root,
 				&|ds| numfmt::IecSizeShort(ds.total_size),
 				&|ds| ds.total_size < cutoff,
 				&|a, b| a.1.total_size.cmp(&b.1.total_size).reverse(),
 			);
 		},
 		args::Mode::Size => {
-			let cutoff = (ts.root.blocks as f64 * options.cutoff) as u64;
-			tree(&mut indent, "", ts.root,
+			let cutoff = (root.blocks as f64 * options.cutoff) as u64;
+			tree(&mut indent, "", root,
 				&|ds| numfmt::IecSizeShort(ds.blocks * 512),
 				&|ds| ds.blocks < cutoff,
 				&|a, b| a.1.blocks.cmp(&b.1.blocks).reverse(),
 			);
 		},
 		args::Mode::Files => {
-			let cutoff = (ts.root.number_of_files as f64 * options.cutoff) as u32;
-			tree(&mut indent, "", ts.root,
+			let cutoff = (root.number_of_files as f64 * options.cutoff) as u32;
+			tree(&mut indent, "", root,
 				&|ds| numfmt::SiFilesShort(ds.number_of_files as u64),
 				&|ds| ds.number_of_files < cutoff,
 				&|a, b| a.1.number_of_files.cmp(&b.1.number_of_files).reverse(),
