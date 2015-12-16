@@ -20,29 +20,11 @@ struct DirState {
 	directories: HashMap<OsString, DirState>,
 }
 
+#[derive(Default)]
 struct ThreadState {
+	root: DirState,
 	dirstack: Vec<DirState>,
 	dev: Option<raw::dev_t>,
-}
-
-impl Default for ThreadState {
-	fn default() -> ThreadState {
-		ThreadState{
-			dirstack: vec![DirState::default()],
-			dev: None,
-		}
-	}
-}
-
-impl ThreadState {
-	fn root_ref(&self) -> &DirState {
-		self.dirstack.first().unwrap()
-	}
-
-	fn root(self) -> DirState {
-		assert!(self.dirstack.len() == 1);
-		self.dirstack.into_iter().next().unwrap()
-	}
 }
 
 fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState, &Metadata)) {
@@ -87,7 +69,7 @@ fn visit_dirs(ts: &mut ThreadState, dir: &Path, cb: &mut FnMut(&mut ThreadState,
 
 			let ds = ts.dirstack.pop().unwrap();
 
-			let top = ts.dirstack.last_mut().unwrap();
+			let top = ts.dirstack.last_mut().unwrap_or(&mut ts.root);
 			top.total_size += ds.total_size;
 			top.blocks += ds.blocks;
 			top.number_of_files += ds.number_of_files;
@@ -185,7 +167,7 @@ fn main() {
 		};
 
 		visit_dirs(&mut ts, Path::new(&path), &mut |ts, meta| {
-			let ds = ts.dirstack.last_mut().unwrap();
+			let ds = ts.dirstack.last_mut().unwrap_or(&mut ts.root);
 			ds.total_size += meta.size() as u64;
 			ds.blocks += meta.blocks() as u64;
 			ds.number_of_files += 1;
@@ -194,8 +176,8 @@ fn main() {
 	let mut indent = String::new();
 
 	match options.mode {
-		args::Mode::ApparentSize => tree_size(&mut indent, "", (ts.root_ref().total_size as f64 * options.cutoff) as u64, ts.root()),
-		args::Mode::Size => tree_blocks(&mut indent, "", (ts.root_ref().blocks as f64 * options.cutoff) as u64, ts.root()),
-		args::Mode::Files => tree_files(&mut indent, "", (ts.root_ref().number_of_files as f64 * options.cutoff) as u32, ts.root()),
+		args::Mode::ApparentSize => tree_size(&mut indent, "", (ts.root.total_size as f64 * options.cutoff) as u64, ts.root),
+		args::Mode::Size => tree_blocks(&mut indent, "", (ts.root.blocks as f64 * options.cutoff) as u64, ts.root),
+		args::Mode::Files => tree_files(&mut indent, "", (ts.root.number_of_files as f64 * options.cutoff) as u32, ts.root),
 	}
 }
