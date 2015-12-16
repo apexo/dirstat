@@ -5,7 +5,7 @@ extern crate core;
 
 use std::collections::hash_map::HashMap;
 use std::ffi::OsString;
-use std::fs::{read_dir, Metadata};
+use std::fs::{read_dir, Metadata, DirEntry};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::string::String;
@@ -30,7 +30,10 @@ struct ThreadState {
 	dev: Option<raw::dev_t>,
 }
 
-fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path, cb: &Fn(&mut DirState, &Metadata)) {
+fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path,
+	process_file: &Fn(&mut DirState, &Metadata),
+	merge_dir_state: &Fn(DirEntry, &mut DirState, DirState),
+) {
 	let iter = match read_dir(dir) {
 		Ok(iter) => iter,
 		Err(error) => {
@@ -65,14 +68,11 @@ fn visit_dirs(ts: &mut ThreadState, top: &mut DirState, dir: &Path, cb: &Fn(&mut
 		if meta.is_dir() {
 			let mut ds = DirState::default();
 
-			visit_dirs(ts, &mut ds, &entry.path(), cb);
+			visit_dirs(ts, &mut ds, &entry.path(), process_file, merge_dir_state);
+			merge_dir_state(entry, top, ds);
 
-			top.total_size += ds.total_size;
-			top.blocks += ds.blocks;
-			top.number_of_files += ds.number_of_files;
-			top.directories.insert(entry.file_name(), ds);
 		} else if meta.is_file() {
-			cb(top, &meta);
+			process_file(top, &meta);
 		}
 	}
 }
@@ -119,11 +119,19 @@ fn main() {
 			None
 		};
 
-		visit_dirs(&mut ts, &mut root, Path::new(&path), &|ds, meta| {
-			ds.total_size += meta.size() as u64;
-			ds.blocks += meta.blocks() as u64;
-			ds.number_of_files += 1;
-		});
+		visit_dirs(&mut ts, &mut root, Path::new(&path),
+			&|ds, meta| {
+				ds.total_size += meta.size() as u64;
+				ds.blocks += meta.blocks() as u64;
+				ds.number_of_files += 1;
+			},
+			&|entry, top, ds| {
+				top.total_size += ds.total_size;
+				top.blocks += ds.blocks;
+				top.number_of_files += ds.number_of_files;
+				top.directories.insert(entry.file_name(), ds);
+			},
+		);
 	}
 	let mut indent = String::new();
 
