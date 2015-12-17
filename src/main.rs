@@ -1,7 +1,3 @@
-#![feature(core)]
-
-extern crate core;
-
 use std::collections::hash_map::HashMap;
 use std::ffi::OsString;
 use std::fs::{read_dir, Metadata, DirEntry};
@@ -10,7 +6,7 @@ use std::path::Path;
 use std::string::String;
 use std::os::unix::raw;
 use std::fmt::Display;
-use core::cmp::Ordering;
+use std::cmp::Ordering;
 
 mod numfmt;
 mod args;
