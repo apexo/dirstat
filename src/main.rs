@@ -1,4 +1,3 @@
-#![feature(path_ext)]
 #![feature(core)]
 
 extern crate core;
@@ -10,7 +9,6 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::string::String;
 use std::os::unix::raw;
-use std::fs::PathExt;
 use std::fmt::Display;
 use core::cmp::Ordering;
 
