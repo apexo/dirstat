@@ -11,10 +11,8 @@ const SI_SHORT: &'static[&'static str] = &["k", "M", "G", "T", "P", "E"];
 const SI_BASE: f64 = 1000f64;
 
 fn num_fmt(n: u64, f: &mut fmt::Formatter, base: f64, prefixes: &[&str], singular: &str, plural: &str) -> fmt::Result {
-	if n == 1 {
-		write!(f, "{:5} {}", n, singular)
-	} else if n < 1000 {
-		write!(f, "{:5} {}", n, plural)
+	if n < 1000 {
+		write!(f, "{:5} {}", n, if n == 1 { singular } else { plural })
 	} else {
 		let mut index = 0;
 		let mut unit = base;
