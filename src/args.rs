@@ -1,6 +1,6 @@
 extern crate argparse;
 
-use self::argparse::{ArgumentParser, StoreTrue, Store, Collect};
+use self::argparse::{ArgumentParser, StoreFalse, Store, Collect};
 use std::str::FromStr;
 
 pub enum Mode {
@@ -43,7 +43,7 @@ pub fn parse_args() -> Options {
 
 		parser.refer(&mut options.mode).add_option(&["-m", "--mode"], Store, "mode, one of: size, files, apparent-size; default: size");
 		parser.refer(&mut options.cutoff).add_option(&["-c", "--cutoff"], Store, "cutoff; default: 0.003.");
-		parser.refer(&mut options.xdev).add_option(&["--no-xdev"], StoreTrue, "enable cross-filesystem statistics; default: do not cross filesystem boundaries.");
+		parser.refer(&mut options.xdev).add_option(&["--no-xdev"], StoreFalse, "enable cross-filesystem statistics; default: do not cross filesystem boundaries.");
 		parser.refer(&mut options.paths).add_argument("path", Collect, "paths; default: .");
 
 		parser.parse_args_or_exit();
